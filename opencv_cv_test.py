@@ -114,6 +114,48 @@ def save_visualization(original_bgr: np.ndarray, processed_bgr: np.ndarray, metr
     plt.close(fig)
 
 
+def show_interactive_results(original_bgr: np.ndarray, processed_bgr: np.ndarray, metrics: dict[str, float]) -> None:
+    views = [
+        ("Original", cv2.cvtColor(original_bgr, cv2.COLOR_BGR2RGB)),
+        ("Processed + Timing", cv2.cvtColor(processed_bgr, cv2.COLOR_BGR2RGB)),
+    ]
+    instructions = "Left/Right switch | s save current view | q close"
+    state = {"index": 0}
+
+    fig, ax = plt.subplots(figsize=(12, 7))
+
+    def render() -> None:
+        title, image = views[state["index"]]
+        ax.clear()
+        ax.imshow(image)
+        ax.set_title(
+            f"{title}\n"
+            f"gray={metrics['grayscale']:.3f} ms | blur={metrics['gaussian_blur']:.3f} ms | "
+            f"canny={metrics['canny_edge']:.3f} ms | fps={metrics['fps']:.2f}\n"
+            f"{instructions}"
+        )
+        ax.axis("off")
+        fig.canvas.draw_idle()
+
+    def on_key(event) -> None:
+        if event.key in ("right", "d"):
+            state["index"] = (state["index"] + 1) % len(views)
+            render()
+        elif event.key in ("left", "a"):
+            state["index"] = (state["index"] - 1) % len(views)
+            render()
+        elif event.key == "s":
+            export_path = OUTPUTS_DIR / f"interactive_view_{state['index']}.png"
+            fig.savefig(export_path, dpi=160, bbox_inches="tight")
+            print(f"Saved interactive view: {export_path}")
+        elif event.key in ("q", "escape"):
+            plt.close(fig)
+
+    fig.canvas.mpl_connect("key_press_event", on_key)
+    render()
+    plt.show()
+
+
 def main() -> None:
     ensure_dirs()
 
@@ -137,6 +179,9 @@ def main() -> None:
     print(f"  gaussian_blur: {metrics['gaussian_blur']:.3f}")
     print(f"  canny_edge:    {metrics['canny_edge']:.3f}")
     print(f"Pipeline FPS:    {metrics['fps']:.2f}")
+    print("Interactive window: use Left/Right to switch, s to save, q to quit.")
+
+    show_interactive_results(image_bgr, processed_bgr, metrics)
 
 
 if __name__ == "__main__":
